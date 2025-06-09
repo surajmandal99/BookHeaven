@@ -1,12 +1,12 @@
 import React from 'react';
-import { genres } from '../data/books';
 
 interface GenreFilterProps {
   selectedGenre: string;
   onSelectGenre: (genre: string) => void;
+  genres: string[];
 }
 
-const GenreFilter: React.FC<GenreFilterProps> = ({ selectedGenre, onSelectGenre }) => {
+const GenreFilter: React.FC<GenreFilterProps> = ({ selectedGenre, onSelectGenre, genres }) => {
   return (
     <div className="mb-6">
       <h3 className="text-lg font-semibold mb-3">Categories</h3>

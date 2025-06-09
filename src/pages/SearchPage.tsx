@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
-import { searchBooks } from '../data/books';
+import { bookService } from '../services/bookService';
 import { Book } from '../types';
 import BookList from '../components/BookList';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
@@ -13,20 +15,42 @@ const SearchPage: React.FC = () => {
   
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (initialQuery) {
-      const foundBooks = searchBooks(initialQuery);
-      setResults(foundBooks);
-    }
+    const searchBooks = async () => {
+      if (initialQuery) {
+        setLoading(true);
+        setError(null);
+        try {
+          const foundBooks = await bookService.searchBooks(initialQuery);
+          setResults(foundBooks);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Search failed');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    searchBooks();
   }, [initialQuery]);
   
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
       setSearchParams({ q: query });
-      const foundBooks = searchBooks(query);
-      setResults(foundBooks);
+      setLoading(true);
+      setError(null);
+      try {
+        const foundBooks = await bookService.searchBooks(query);
+        setResults(foundBooks);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Search failed');
+      } finally {
+        setLoading(false);
+      }
     }
   };
   
@@ -44,8 +68,8 @@ const SearchPage: React.FC = () => {
             fullWidth
             className="rounded-r-none"
           />
-          <Button type="submit" className="rounded-l-none">
-            <Search className="h-5 w-5" />
+          <Button type="submit" className="rounded-l-none" disabled={loading}>
+            {loading ? <LoadingSpinner size="sm" /> : <Search className="h-5 w-5" />}
           </Button>
         </form>
       </div>
@@ -53,14 +77,24 @@ const SearchPage: React.FC = () => {
       {initialQuery && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold">
-            {results.length > 0 
-              ? `${results.length} results for "${initialQuery}"` 
-              : `No results found for "${initialQuery}"`}
+            {loading 
+              ? 'Searching...' 
+              : results.length > 0 
+                ? `${results.length} results for "${initialQuery}"` 
+                : `No results found for "${initialQuery}"`}
           </h2>
         </div>
       )}
-      
-      <BookList books={results} />
+
+      {error ? (
+        <ErrorMessage message={error} onRetry={() => handleSearch({ preventDefault: () => {} } as React.FormEvent)} />
+      ) : loading ? (
+        <div className="flex justify-center py-8">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
+        <BookList books={results} />
+      )}
     </div>
   );
 };

@@ -1,13 +1,43 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ShoppingBag, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { orderService } from '../services/orderService';
+import Button from '../components/ui/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const CartPage: React.FC = () => {
   const { cartItems, removeFromCart, updateQuantity, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'esewa' | 'khalti'>('esewa');
+  
+  const handleCheckout = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const order = await orderService.createOrder(
+        user.id,
+        cartItems,
+        paymentMethod
+      );
+      
+      clearCart();
+      alert(`Order placed successfully! Order ID: ${order.id}`);
+      navigate('/profile');
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      alert('Checkout failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   if (cartItems.length === 0) {
     return (
@@ -135,16 +165,50 @@ const CartPage: React.FC = () => {
                 <span className="font-semibold">${(totalPrice * 1.08).toFixed(2)}</span>
               </div>
             </div>
+
+            {user && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Payment Method</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="esewa"
+                      checked={paymentMethod === 'esewa'}
+                      onChange={(e) => setPaymentMethod(e.target.value as 'esewa')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">eSewa</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="khalti"
+                      checked={paymentMethod === 'khalti'}
+                      onChange={(e) => setPaymentMethod(e.target.value as 'khalti')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Khalti</span>
+                  </label>
+                </div>
+              </div>
+            )}
             
             <Button 
               variant="primary" 
               fullWidth
               size="lg"
-              onClick={() => {}}
-              disabled={!user}
+              onClick={handleCheckout}
+              disabled={!user || isProcessing}
             >
-              <ShoppingBag className="mr-2 h-5 w-5" />
-              {user ? 'Proceed to Checkout' : 'Login to Checkout'}
+              {isProcessing ? (
+                <LoadingSpinner size="sm" className="mr-2" />
+              ) : (
+                <ShoppingBag className="mr-2 h-5 w-5" />
+              )}
+              {isProcessing ? 'Processing...' : user ? 'Proceed to Checkout' : 'Login to Checkout'}
             </Button>
             
             {!user && (

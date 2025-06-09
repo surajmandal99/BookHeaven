@@ -1,42 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ShoppingCart, Heart, Share2, ArrowLeft } from 'lucide-react';
-import { getBookById, getBooksByGenre } from '../data/books';
+import { useBook } from '../hooks/useBook';
+import { bookService } from '../services/bookService';
 import { Book } from '../types';
 import Button from '../components/ui/Button';
 import BookList from '../components/BookList';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import { useCart } from '../context/CartContext';
 
 const BookDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [book, setBook] = useState<Book | null>(null);
+  const { book, loading, error } = useBook(id!);
   const [quantity, setQuantity] = useState(1);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
   const { addToCart } = useCart();
   
   useEffect(() => {
-    if (id) {
-      const foundBook = getBookById(id);
-      if (foundBook) {
-        setBook(foundBook);
-        
-        // Get related books from the same genre
-        const related = getBooksByGenre(foundBook.genre)
-          .filter(b => b.id !== foundBook.id)
-          .slice(0, 4);
-          
-        setRelatedBooks(related);
+    const fetchRelatedBooks = async () => {
+      if (book) {
+        setRelatedLoading(true);
+        try {
+          const related = await bookService.getBooksByGenre(book.genre);
+          const filtered = related.filter(b => b.id !== book.id).slice(0, 4);
+          setRelatedBooks(filtered);
+        } catch (error) {
+          console.error('Error fetching related books:', error);
+        } finally {
+          setRelatedLoading(false);
+        }
       }
-    }
-  }, [id]);
-  
-  if (!book) {
+    };
+
+    fetchRelatedBooks();
+  }, [book]);
+
+  if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h2 className="text-2xl font-bold">Book not found</h2>
-        <Link to="/" className="text-blue-900 hover:underline mt-4 inline-block">
-          Return to home page
-        </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-center items-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !book) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <ErrorMessage 
+          message={error || "Book not found"} 
+          onRetry={() => window.location.reload()}
+        />
+        <div className="text-center mt-4">
+          <Link to="/" className="text-blue-900 hover:underline">
+            Return to home page
+          </Link>
+        </div>
       </div>
     );
   }
@@ -135,7 +157,11 @@ const BookDetailPage: React.FC = () => {
         </div>
       </div>
       
-      {relatedBooks.length > 0 && (
+      {relatedLoading ? (
+        <div className="mt-12 flex justify-center">
+          <LoadingSpinner />
+        </div>
+      ) : relatedBooks.length > 0 && (
         <div className="mt-12">
           <BookList books={relatedBooks} title="You may also like" />
         </div>
