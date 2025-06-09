@@ -204,7 +204,7 @@ const CartPage: React.FC = () => {
               disabled={!user || isProcessing}
             >
               {isProcessing ? (
-                <LoadingSpinner size="sm" className="mr-2" />
+                <LoadingSpinner size="sm\" className="mr-2" />
               ) : (
                 <ShoppingBag className="mr-2 h-5 w-5" />
               )}
